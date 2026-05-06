@@ -1,0 +1,13 @@
+{
+  "task": "graph2energy",
+  "seed": 42,
+  "deterministic": true,
+  "graph2energy": {
+    "model": "F2SAttr",
+    "data_dir": "./data",
+    "split": "split_demo",
+    "epochs": 100,
+    "lr": 1e-4,
+    "batch_size": 1
+  }
+}
