@@ -698,6 +698,10 @@ class WeatherMLP(nn.Module):
 
 
 
+def is_day_model(model_name: str) -> bool:
+    return True
+
+
 def build_model(model_name: str, weather_input_dim: int, device: torch.device):
     if model_name == "F2S":
         model = F2S(weather_in_dim=weather_input_dim)

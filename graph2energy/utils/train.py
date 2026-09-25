@@ -332,6 +332,11 @@ def train_ArcheEnergy(data_dict, config):
     payload = {
         "run_name": run_name,
         "model": model_name,
+        "topology": {
+            "mode": str(config.get("topology_mode", "original")),
+            "seed": int(config.get("topology_seed", seed)),
+            "stats": config.get("topology_stats", {}),
+        },
         "best_val_rmse": best_val_rmse,
         "test": test_metrics,
     }
@@ -371,6 +376,9 @@ def train_ArcheEnergy(data_dict, config):
             "day_length": day_length,
             "day_stride": day_stride,
             "case_splits": split_cases,
+            "topology_mode": str(config.get("topology_mode", "original")),
+            "topology_seed": int(config.get("topology_seed", seed)),
+            "topology_stats": config.get("topology_stats", {}),
         },
     )
     with (run_dir / "config.json").open("w", encoding="utf-8") as f:

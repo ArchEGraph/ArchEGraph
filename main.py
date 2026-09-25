@@ -38,6 +38,10 @@ def _candidate_pack_roots(path_hint: Path | None) -> list[Path]:
         candidates.append(path_hint)
         candidates.append(path_hint / "PACK")
 
+        if path_hint.exists() and path_hint.is_dir():
+            for manifest in path_hint.glob("*/manifest.csv"):
+                candidates.append(manifest.parent)
+
     candidates.extend(
         [
             DEFAULT_DATA_DIR,
@@ -175,6 +179,19 @@ def _parse_args():
     parser.add_argument("--mesh_batch_size", type=int, default=None)
 
     parser.add_argument("--graph_model", type=str, default=None)
+    parser.add_argument(
+        "--topology_mode",
+        type=str,
+        default=None,
+        choices=["original", "shuffled"],
+        help="G2E face-to-space topology condition.",
+    )
+    parser.add_argument(
+        "--topology_seed",
+        type=int,
+        default=None,
+        help="Seed for the fixed shuffled topology (defaults to the training seed).",
+    )
     # Legacy aliases kept for backward compatibility.
     parser.add_argument("--graph_data_dir", type=Path, default=None)
     parser.add_argument("--graph_split_csv", type=Path, default=None)
@@ -340,6 +357,7 @@ def _run_graph2energy(base_cfg: Dict[str, Any], args, device: torch.device, conf
     _append_task_path("graph2energy")
 
     from prep.dataload import read_split_data
+    from topology_ablation import apply_topology_ablation
     from utils.train import train_ArcheEnergy
 
     run_name = _resolve_run_name(
@@ -369,6 +387,25 @@ def _run_graph2energy(base_cfg: Dict[str, Any], args, device: torch.device, conf
     if not data_dict:
         raise RuntimeError("No cases loaded from split CSV. Check split file and data_dir.")
 
+    topology_mode = args.topology_mode or str(base_cfg.get("topology_mode", "original"))
+    topology_seed = int(
+        args.topology_seed
+        if args.topology_seed is not None
+        else base_cfg.get("topology_seed", base_cfg.get("seed", 42))
+    )
+    topology_stats = apply_topology_ablation(
+        data_dict,
+        mode=topology_mode,
+        seed=topology_seed,
+    )
+    print(
+        "Topology condition | "
+        f"mode={topology_mode}, seed={topology_seed}, "
+        f"buildings={topology_stats['buildings']}, "
+        f"edges={topology_stats['edges']}, "
+        f"changed_edges={topology_stats['changed_edges']}"
+    )
+
     train_cfg = {
         "device": device,
         "model": model_name,
@@ -377,6 +414,11 @@ def _run_graph2energy(base_cfg: Dict[str, Any], args, device: torch.device, conf
         "case_splits": case_splits,
         "seed": int(base_cfg.get("seed", 42)),
         "deterministic": _as_bool(base_cfg.get("deterministic"), True),
+        "data_dir": data_dir,
+        "split_csv": split_csv,
+        "topology_mode": topology_mode,
+        "topology_seed": topology_seed,
+        "topology_stats": topology_stats,
     }
     if args.graph_epochs is not None:
         train_cfg["epochs"] = int(args.graph_epochs)
